@@ -1,0 +1,3 @@
+Docker runs applications in containers.
+Containers isolate applications.
+Docker containers can run distributed services

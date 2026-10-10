@@ -1,0 +1,37 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ads-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  server:
+    build: .
+    image: ads:lab
+    container_name: ads-server
+    ports:
+      - "18812:18812"
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: python server.py
+
+  client:
+    image: ads:lab
+    container_name: ads-client
+    depends_on:
+      - server
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: sleep infinity
+
+volumes:
+  redis_data:
