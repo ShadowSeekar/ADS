@@ -8,7 +8,7 @@ from rpyc.utils.server import ThreadedServer
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-TEXT_PATH = "/app/texts/sample.txt"
+TEXT_PATH = "/app/script/deadpool.txt"
 
 cache = redis.Redis(
     host=REDIS_HOST,
