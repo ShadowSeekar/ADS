@@ -49,10 +49,10 @@ docker compose exec redis redis-cli KEYS "wordcount:*"
 ```
 
 To clear Redis Cache use this:
-'''
-docker compose exec redis redis-cli FLUSHALL
-'''
 
+```
+docker compose exec redis redis-cli FLUSHALL
+```
 ## Project Structure
 
 ```text
