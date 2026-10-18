@@ -1,0 +1,85 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+
+  server1:
+    build: .
+    image: ads:lab
+    container_name: server1
+    command: python server.py
+    cpus: 0.5
+    environment: &server_env
+      REDIS_HOST: redis
+      SERVER_ID: server1
+      DEFAULT_TEXT: sample
+      SERVER_VERBOSE: ${SERVER_VERBOSE:-0}
+      BYPASS_CACHE: ${BYPASS_CACHE:-0}
+      ARTIFICIAL_DELAY_MS: "0"
+    volumes:
+      - ./:/app
+      - ./script:/app/script:ro
+    depends_on:
+      - redis
+
+  server2:
+    build: .
+    image: ads:lab
+    container_name: server2
+    command: python server.py
+    cpus: 0.5
+    environment:
+      <<: *server_env
+      SERVER_ID: server2
+    volumes:
+      - ./:/app
+      - ./script:/app/script:ro
+    depends_on:
+      - redis
+
+  server3:
+    build: .
+    image: ads:lab
+    container_name: server3
+    command: python server.py
+    cpus: 0.5
+    environment:
+      <<: *server_env
+      SERVER_ID: server3
+      # Optional: make server3 slower so the two algorithms behave differently.
+      ARTIFICIAL_DELAY_MS: ${SLOW_DELAY_MS:-0}
+    volumes:
+      - ./:/app
+      - ./script:/app/script:ro
+    depends_on:
+      - redis
+
+  load-balancer:
+    build: .
+    image: ads:lab
+    container_name: load-balancer
+    command: python loadbalancer.py
+    environment:
+      LB_PORT: "18812"
+      LB_ALGORITHM: ${LB_ALGORITHM:-least_connections}
+      LB_VERBOSE: ${LB_VERBOSE:-0}
+      BACKENDS: server1:18812,server2:18812,server3:18812
+    volumes:
+      - ./:/app
+    depends_on:
+      - server1
+      - server2
+      - server3
+
+  client:
+    build: .
+    image: ads:lab
+    container_name: client
+    command: sleep infinity
+    environment:
+      SERVER_HOST: load-balancer
+      REDIS_HOST: redis
+    volumes:
+      - ./:/app
+    depends_on:
+      - load-balancer
