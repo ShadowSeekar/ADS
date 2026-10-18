@@ -1,8 +1,0 @@
-docker compose up -d --build
-docker compose exec client python client.py blood sample
-docker compose exec client python benchmark.py
-
-# Different settings without editing code:
-docker compose exec -e RATES=50,70,90,110,130 -e DURATION_SECONDS=20 client python benchmark.py
-docker compose exec -e WARM_CACHE=0 client python benchmark.py
-docker compose exec -e TEXT_NAME=deadpool client python benchmark.py
