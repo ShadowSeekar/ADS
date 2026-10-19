@@ -1,2 +1,0 @@
-target_rate,achieved_rate,scheduled_requests,successful_requests,failed_requests,mean_latency_ms,p99_latency_ms,mean_total_latency_ms,p99_total_latency_ms,average_queue_delay_ms,elapsed_seconds,warm_cache
-700,545.3812236237294,21000,21000,0,29.26697712376162,65.07187700026407,4688.5124687524185,8488.66810057143,4659.245491628657,38.50517599499972,True
