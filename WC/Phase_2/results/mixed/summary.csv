@@ -1,0 +1,2 @@
+cache_mode,target_rate,achieved_rate,scheduled_requests,successful_requests,failed_requests,mean_latency_ms,p99_latency_ms,mean_total_latency_ms,p99_total_latency_ms,average_queue_delay_ms,elapsed_seconds,cache_hits,cache_misses,cache_hit_rate_percent
+mixed,10,10.198338136744134,50,50,0,1.1234617798618274,3.20680200093193,1.3169957396166865,3.355189001013059,0.1935339597548591,4.902759579999838,45,5,90.0
