@@ -37,8 +37,8 @@ HIT_KEYWORDS = [k.strip() for k in os.getenv(
 #   mixed50 : half the requests use pre-cached keywords        -> 50 % hits
 #   mixed90 : 90 % of the requests use pre-cached keywords     -> 90 % hits
 #   warm    : every request uses a pre-cached keyword          -> 100 % hits
-MODE_HIT_TARGET = {"cold": 0.0, "mixed50": 0.5, "mixed90": 0.9, "warm": 1.0}
-MODES = [m.strip() for m in os.getenv("MODES", "cold,mixed50,mixed90,warm").split(",") if m.strip()]
+MODE_HIT_TARGET = {"cold": 0.0, "mixed50": 0.5, "warm": 1.0}
+MODES = [m.strip() for m in os.getenv("MODES", "cold,mixed50,warm").split(",") if m.strip()]
 for m in MODES:
     if m not in MODE_HIT_TARGET:
         raise SystemExit(f"Unknown mode '{m}'. Choose from {list(MODE_HIT_TARGET)}")
