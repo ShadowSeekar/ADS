@@ -1,0 +1,50 @@
+# 1 server
+docker compose exec -e SERVER_HOST=server1 -e CONFIG_LABEL=single client python benchmark.py
+
+# least connections: set LB_ALGORITHM=least_connections, restart the load balancer, then
+docker compose exec -e CONFIG_LABEL=least_connections client python benchmark.py
+
+# least response time: set LB_ALGORITHM=least_response_time, restart the load balancer, then
+docker compose exec -e CONFIG_LABEL=least_response_time client python benchmark.py
+
+docker compose exec client python compare.py
+
+
+---------------
+
+Whether this affects you
+
+Phase 3 results folder: if it holds no results from the old benchmark, default never appears and you can ignore this.
+Mixed old and new results: this is the case to watch. Each run overwrites results/<config>/summary.csv for its configuration. If you re-run single with the new benchmark but least_connections still holds old results, compare.py plots them as different groups (warm and so on for one, default for the other). They aren’t comparable.
+
+What to do
+
+Delete results/ and run all three configurations again with the new benchmark_phase3.py, using the same rates, duration and modes. Then every configuration has real modes and the comparison is fair.
+
+
+------------------
+
+How do you compare Phase 2 with Phase 3?
+
+You can’t put the old Phase 2 numbers next to the Phase 3 numbers, because the two benchmarks aren’t comparable:
+
+Connections: Phase 2 reuses one connection per worker, so its latency excludes connection setup. Phase 3 includes it in every request.
+Workers and rates: the defaults differ (8 vs 16 workers, 300–700 vs 50–250 req/s).
+CPU limits: your Phase 3 compose gives each server cpus: 0.5, and the Phase 2 compose had no limit.
+
+The assignment (item 8b) asks for the same requests with one server and with three servers. The simplest fair way is to run the one-server case with the Phase 3 script as well. That’s the single configuration from my earlier message, and server1 runs the same server code as Phase 2. Then all three configurations differ in only one thing, how requests reach the servers:
+
+single sends requests straight to server1.
+least_connections goes through the load balancer.
+least_response_time goes through the load balancer.
+
+Use identical RATES, DURATION_SECONDS, WORKERS, MODES and the same BYPASS_CACHE setting for all three, then run compare.py. Because each server has 0.5 CPU, single is one 0.5-CPU server against 3 × 0.5 CPU, which is a fair comparison.
+
+In the report, state that you re-measured the single-server baseline with the Phase 3 script for fairness. You can still show your Phase 2 figures in the Phase 2 section, where they belong.
+
+Two things affect how clearly the comparison shows scaling:
+
+Warm cache hides the benefit. When everything is a cache hit, each request is only a Redis lookup, so three servers help little. For the load-balancing comparison, cold mode or BYPASS_CACHE=1 shows the difference better, and warm makes a good contrast.
+The load balancer adds a hop. At low rates, single may be slightly faster than the load-balanced setups, because requests go through an extra proxy. That’s normal, and worth explaining in the report.
+
+If you also need the Phase 2 benchmark to be directly comparable, I can add a CONNECTION_MODE setting to the Phase 3 benchmark for a persistent connection per worker. Without a load balancer in the path you could then run it in the same style as Phase 2.
