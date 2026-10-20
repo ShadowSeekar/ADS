@@ -30,21 +30,16 @@ WORKERS = int(os.getenv("WORKERS", "8"))
 SEED = int(os.getenv("SEED", "42"))
 HIT_KEYWORDS = [k.strip() for k in os.getenv("KEYWORDS", "Deadpool,blood,knows,feels,slaps").split(",") if k.strip()]
 
-# cold = 0% designed hits; mixed50 = 50%; warm = 100%.
-MODE_HIT_TARGET = {"cold": 0.0, "mixed50": 0.5, "warm": 1.0}
-MODES = [m.strip() for m in os.getenv("MODES", "cold,mixed50,warm").split(",") if m.strip()]
-
-if not RATES or any(rate <= 0 for rate in RATES):
-    raise SystemExit("RATES must contain positive integers.")
-if DURATION_SECONDS <= 0 or WORKERS <= 0:
-    raise SystemExit("DURATION_SECONDS and WORKERS must be positive.")
-if not HIT_KEYWORDS:
-    raise SystemExit("KEYWORDS must contain at least one keyword.")
-if not MODES:
-    raise SystemExit("MODES must contain at least one mode.")
-for mode in MODES:
-    if mode not in MODE_HIT_TARGET:
-        raise SystemExit(f"Unknown mode '{mode}'. Choose from {list(MODE_HIT_TARGET)}")
+# Cache modes -> fraction of requests that are *designed* to be cache hits.
+#   cold    : every request uses a never-seen keyword          -> 0 % hits
+#   mixed50 : half the requests use pre-cached keywords        -> 50 % hits
+#   mixed90 : 90 % of the requests use pre-cached keywords     -> 90 % hits
+#   warm    : every request uses a pre-cached keyword          -> 100 % hits
+MODE_HIT_TARGET = {"cold": 0.0, "mixed50": 0.5, "mixed90": 0.9, "warm": 1.0}
+MODES = [m.strip() for m in os.getenv("MODES", "cold,mixed50,mixed90,warm").split(",") if m.strip()]
+for m in MODES:
+    if m not in MODE_HIT_TARGET:
+        raise SystemExit(f"Unknown mode '{m}'. Choose from {list(MODE_HIT_TARGET)}")
 
 os.makedirs("results", exist_ok=True)
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
@@ -364,4 +359,4 @@ if __name__ == "__main__":
     plot_mode_bars(summary, "latency_vs_hit_ratio.png")
 
     print_table(summary)
-    print("\nBenchmark complete. CSV files and seven figures are saved in results/.")
+    print("\nBenchmark complete. Results saved in results/.")
