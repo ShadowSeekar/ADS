@@ -91,7 +91,7 @@ def mark_up(b: Backend) -> None:
     peers = [x.ewma_seconds for x in backends
              if x is not b and x.healthy and x.ewma_seconds is not None]
     b.ewma_seconds = sum(peers) / len(peers) if peers else None
-    b.active = 0
+#    b.active = 0
     b.healthy = True
     b.probe_fails = 0
     b.probe_successes = 0
