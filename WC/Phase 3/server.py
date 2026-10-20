@@ -20,7 +20,6 @@ BYPASS_CACHE = os.getenv("BYPASS_CACHE", "0") == "1"
 # Simulated extra processing time, to make one replica slower than the others.
 ARTIFICIAL_DELAY_S = float(os.getenv("ARTIFICIAL_DELAY_MS", "0")) / 1000.0
 HOT_KEY = "hot_keywords"
-STATS_KEY = "cache_stats"  # Redis hash: hits / misses, shared by all replicas
 
 cache = redis.Redis(
     host=REDIS_HOST,
@@ -28,24 +27,6 @@ cache = redis.Redis(
     decode_responses=True,
     socket_connect_timeout=5,
     socket_timeout=5,
-)
-
-# One atomic Redis round trip: read the cached value, bump the hot-keyword score and
-# (unless the cache is bypassed) record a hit or a miss. Counters live in Redis, so
-# they stay correct across all replicas behind the load balancer.
-LOOKUP = cache.register_script(
-    """
-local v = redis.call('GET', KEYS[1])
-redis.call('ZINCRBY', KEYS[2], 1, ARGV[1])
-if ARGV[2] == '1' then
-  if v then
-    redis.call('HINCRBY', KEYS[3], 'hits', 1)
-  else
-    redis.call('HINCRBY', KEYS[3], 'misses', 1)
-  end
-end
-return v
-"""
 )
 
 TEXTS = {}
@@ -62,17 +43,6 @@ if DEFAULT_TEXT not in TEXTS:
     raise RuntimeError(f"DEFAULT_TEXT '{DEFAULT_TEXT}' not found. Available: {sorted(TEXTS)}")
 
 
-def normalise_keyword(keyword):
-    """Lower-case and collapse whitespace so 'The  Dark' and 'the dark' share a cache key."""
-    return " ".join(str(keyword).lower().split())
-
-
-def build_pattern(keyword):
-    """Whole-word / whole-phrase pattern; any whitespace run between words matches."""
-    separator = r"\s+"
-    return r"\b" + separator.join(re.escape(w) for w in keyword.split(" ")) + r"\b"
-
-
 class WordCountService(rpyc.Service):
     def exposed_count_keyword(self, keyword, text=None):
         """Return a JSON string: {"count": int, "server_id": str, "cache": str}.
@@ -80,7 +50,7 @@ class WordCountService(rpyc.Service):
         A JSON string (primitive) is returned instead of a dict. A dict would
         be passed as an RPyC netref and fail once the connection is closed.
         """
-        keyword = normalise_keyword(keyword)
+        keyword = str(keyword).strip().lower()
         if not keyword:
             raise ValueError("Keyword cannot be empty")
 
@@ -90,16 +60,19 @@ class WordCountService(rpyc.Service):
         content, text_hash = TEXTS[text_name]
 
         cache_key = f"wordcount:{text_hash}:{keyword}"
-        cached_result = LOOKUP(
-            keys=[cache_key, HOT_KEY, STATS_KEY],
-            args=[keyword, "0" if BYPASS_CACHE else "1"],
-        )
+
+        # One Redis round trip: lookup + hot-keyword counter.
+        pipe = cache.pipeline(transaction=False)
+        pipe.get(cache_key)
+        pipe.zincrby(HOT_KEY, 1, keyword)
+        cached_result, _ = pipe.execute()
 
         if cached_result is not None and not BYPASS_CACHE:
             count = int(cached_result)
             status = "HIT"
         else:
-            count = len(re.findall(build_pattern(keyword), content, flags=re.IGNORECASE))
+            pattern = rf"\b{re.escape(keyword)}\b"
+            count = len(re.findall(pattern, content, flags=re.IGNORECASE))
             if BYPASS_CACHE:
                 status = "BYPASS"
             else:
@@ -121,18 +94,6 @@ class WordCountService(rpyc.Service):
         n = max(1, int(n))
         top = cache.zrevrange(HOT_KEY, 0, n - 1, withscores=True)
         return json.dumps([[kw, int(score)] for kw, score in top])
-
-    def exposed_cache_stats(self):
-        """Cluster-wide cache counters as JSON: {"hits", "misses", "hit_ratio"}."""
-        raw = cache.hgetall(STATS_KEY)
-        hits, misses = int(raw.get("hits", 0)), int(raw.get("misses", 0))
-        total = hits + misses
-        return json.dumps({"hits": hits, "misses": misses,
-                           "hit_ratio": (hits / total) if total else 0.0})
-
-    def exposed_reset_stats(self):
-        cache.delete(STATS_KEY)
-        return True
 
     def exposed_list_texts(self):
         return json.dumps(sorted(TEXTS))

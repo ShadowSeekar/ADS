@@ -1,12 +1,16 @@
 import json
 import os
-import re
+import sys
 import time
 
 import rpyc
 
 SERVER_HOST = os.getenv("SERVER_HOST", "load-balancer")
 SERVER_PORT = int(os.getenv("SERVER_PORT", "18812"))
+
+# Usage: python client.py [keyword] [text_name]
+#keyword = sys.argv[1] if len(sys.argv) > 1 else input("Enter a keyword to count: ").strip()
+#text_name = sys.argv[2] if len(sys.argv) > 2 else input("Enter script name to search in (blank = default): ").strip() or None
 
 scripts = {
     "1": "Alien",
@@ -29,39 +33,24 @@ while script_choice not in scripts:
 
 text_name = scripts[script_choice]
 
-# Ask for one or more words (separated by spaces and/or commas)
-raw_input_words = input("Enter one or more words to count (separated by spaces or commas): ")
-words = []
-for w in re.split(r"[,\s]+", raw_input_words.strip()):
-    if w and w.lower() not in (x.lower() for x in words):  # skip empty and repeated words
-        words.append(w)
+# Ask for the keyword to count
+keyword = input("Enter a keyword to count: ").strip()
 
-while not words:
-    raw_input_words = input("Please enter at least one word: ")
-    words = [w for w in re.split(r"[,\s]+", raw_input_words.strip()) if w]
 
-# One new connection per word, so the load balancer makes a fresh decision for each
-# word and you can see which server handled it.
-results = []  # (word, count, server_id, cache, latency_ms)
-batch_start = time.perf_counter()
-for word in words:
-    start = time.perf_counter()
-    with rpyc.connect(
-        SERVER_HOST,
-        SERVER_PORT,
-        config={"sync_request_timeout": 30},
-    ) as connection:
-        raw = connection.root.count_keyword(word, text_name)
-    elapsed_ms = (time.perf_counter() - start) * 1000
-    # raw is a plain str, so it is safe to use after the connection has closed.
-    response = json.loads(raw)
-    results.append((word, response["count"], response["server_id"],
-                    response["cache"], elapsed_ms))
-total_ms = (time.perf_counter() - batch_start) * 1000
+start = time.perf_counter()
+with rpyc.connect(
+    SERVER_HOST,
+    SERVER_PORT,
+    config={"sync_request_timeout": 30},
+) as connection:
+    raw = connection.root.count_keyword(keyword, text_name)
+elapsed_ms = (time.perf_counter() - start) * 1000
 
-print(f"\nText: {text_name}")
-print(f"{'Word':<18} {'Occurrences':>11}  {'Served by':<10} {'Cache':<7} {'Latency (ms)':>12}")
-for word, count, server_id, cache_status, ms in results:
-    print(f"{word:<18} {count:>11}  {server_id:<10} {cache_status:<7} {ms:>12.3f}")
-print(f"\nTotal for {len(results)} word(s): {total_ms:.3f} ms "
-      f"(latency includes connection setup)")
+# raw is a plain str, so it is safe to use after the connection has closed.
+response = json.loads(raw)
+
+print(f"Keyword: {keyword}")
+print(f"Occurrences: {response['count']}")
+print(f"Served by: {response['server_id']}")
+print(f"Redis cache: {response['cache']}")
+print(f"Execution latency (includes connection setup): {elapsed_ms:.3f} ms")
