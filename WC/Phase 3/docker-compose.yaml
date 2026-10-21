@@ -46,7 +46,6 @@ services:
     environment:
       <<: *server_env
       SERVER_ID: server3
-      # Optional: make server3 slower so the two algorithms behave differently.
       ARTIFICIAL_DELAY_MS: ${SLOW_DELAY_MS:-0}
     volumes:
       - ./:/app
