@@ -1,0 +1,32 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+
+  server:
+    build: .
+    image: ads:lab
+    container_name: server
+    command: python server.py
+    environment:
+      REDIS_HOST: redis
+      SERVER_VERBOSE: "0"
+      DEFAULT_TEXT: sample
+    volumes:
+      - ./:/app
+      - ./script:/app/script:ro
+    depends_on:
+      - redis
+
+  client:
+    build: .
+    image: ads:lab
+    container_name: client
+    command: sleep infinity
+    environment:
+      SERVER_HOST: server
+      REDIS_HOST: redis
+    volumes:
+      - ./:/app
+    depends_on:
+      - server
