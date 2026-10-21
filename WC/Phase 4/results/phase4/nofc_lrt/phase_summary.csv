@@ -1,0 +1,4 @@
+phase,seconds,failed,server1_rps,server2_rps,server3_rps,server1_share_pct,server2_share_pct,server3_share_pct
+before failure,30,0,16.47,41.63,41.90,16.5,41.6,41.9
+outage (+6s settle),24,20,46.54,0.00,52.62,46.9,0.0,53.1
+after restart (+6s settle),24,0,11.00,50.50,38.50,11.0,50.5,38.5
